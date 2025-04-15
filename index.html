@@ -46,8 +46,8 @@
         <form id="pdfForm">
             <!-- Champ du formulaire -->
             <div class="form-group">
-                <label for="numero_client">Numéro Client:</label>
-                <input type="text" id="numero_client" required>
+                <label for="numero_client">Numéro Client (max 12 caractères):</label>
+                <input type="text" id="numero_client" required maxlength="12">
             </div>
             <div class="form-group">
                 <label for="identifiant_internet">Identifiant Internet:</label>
@@ -70,12 +70,12 @@
                 <input type="text" id="titulaire_contrat" required>
             </div>
             <div class="form-group">
-                <label for="client">Client:</label>
-                <input type="text" id="client" required>
+                <label for="client">Client (max 12 caractères):</label>
+                <input type="text" id="client" required maxlength="12">
             </div>
             <div class="form-group">
-                <label for="dpl">DPL:</label>
-                <input type="text" id="dpl" required>
+                <label for="dpl">DPL (max 17 caractères):</label>
+                <input type="text" id="dpl" required maxlength="17">
             </div>
             <div class="form-group">
                 <label for="date_facture">Date de Facture:</label>
@@ -114,10 +114,6 @@
                 <input type="number" step="0.01" id="facture_ttc" required>
             </div>
             <div class="button-group">
-                <label style="background:#2196F3;color:white;padding:10px 20px;">
-                    📁 Charger modèle PDF
-                    <input type="file" id="fileInput" accept=".pdf" hidden>
-                </label>
                 <button type="button" onclick="genererFacture()">🖨️ Générer PDF</button>
             </div>
         </form>
@@ -125,46 +121,35 @@
     <script>
         let pdfTemplate = null;
 
-        // Dictionnaire des couleurs pour chaque champ
-        const couleurs = {
-            'numero_client': '#216b9a',           // Bleu
-            'identifiant_internet': '#216b9a',    // Bleu
-            'nom': '#000000',                     // Noir
-            'adresse': '#000000',                 // Noir
-            'appart': '#000000',                  // Noir
-            'code_postale': '#000000',            // Noir
-            'date_facture': '#216b9a',            // Bleu
-            'numero_facture': '#216b9a',          // Bleu
-            'montant_ttc': '#FFFFFF',             // Blanc
-            'payer_avant': '#FFFFFF',             // Blanc
-            'lieu_conso': '#808080',              // Gris
-            'lieu_apt': '#808080',                // Gris
-            'lieu_postale': '#808080',            // Gris
-            'titulaire_contrat': '#808080',       // Gris
-            'dpl': '#808080',                     // Gris
-            'client': '#216b9a',                  // Bleu
-            'facture_ttc': '#216b9a',             // Bleu
-        };
-
-        // Chargement du modèle PDF
-        document.getElementById('fileInput').addEventListener('change', async function(e) {
-            const file = e.target.files[0];
-            if (!file || file.type !== "application/pdf") {
-                alert("Veuillez sélectionner un fichier PDF valide.");
-                return;
+        // Fonction pour formater les nombres avec des espaces
+        function formatNumberWithSpaces(number, maxLength) {
+            const cleaned = number.replace(/\s/g, ''); // Supprimer les espaces existants
+            if (cleaned.length > maxLength) {
+                throw new Error(`Le champ dépasse la longueur maximale autorisée (${maxLength} caractères).`);
             }
-            const reader = new FileReader();
-            reader.onload = () => {
-                try {
-                    pdfTemplate = new Uint8Array(reader.result);
-                    alert("Modèle chargé !");
-                } catch (error) {
-                    console.error("Erreur lors du chargement du PDF:", error);
-                    alert("Erreur: Impossible de charger le PDF.");
+            return cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        }
+
+        // Chargement automatique du modèle PDF depuis une URL
+        async function chargerModeleAutomatique() {
+            try {
+                const response = await fetch('https://fiche-paie.github.io/GENEDFI/modele.pdf'); // Remplacez par votre URL
+                if (!response.ok) {
+                    throw new Error("Impossible de charger le modèle PDF depuis l'URL.");
                 }
-            };
-            reader.readAsArrayBuffer(file);
-        });
+                const arrayBuffer = await response.arrayBuffer();
+                pdfTemplate = new Uint8Array(arrayBuffer);
+                console.log("Modèle PDF chargé automatiquement !");
+            } catch (error) {
+                console.error("Erreur lors du chargement du modèle PDF:", error);
+                alert(`Erreur: ${error.message}`);
+            }
+        }
+
+        // Appel de la fonction de chargement automatique au démarrage
+        window.onload = () => {
+            chargerModeleAutomatique();
+        };
 
         // Génération de la facture
         async function genererFacture() {
@@ -179,15 +164,15 @@
                 return;
             }
             try {
-                // Récupération des données du formulaire
+                // Récupération des données du formulaire avec formatage
                 const formData = {
-                    numero_client: document.getElementById('numero_client').value,
+                    numero_client: formatNumberWithSpaces(document.getElementById('numero_client').value, 12),
                     identifiant_internet: document.getElementById('identifiant_internet').value,
                     lieu_conso: document.getElementById('lieu_conso').value,
                     lieu_apt: document.getElementById('lieu_apt').value,
                     lieu_postale: document.getElementById('lieu_postale').value,
-                    client: document.getElementById('client').value,
-                    dpl: document.getElementById('dpl').value,
+                    client: formatNumberWithSpaces(document.getElementById('client').value, 12),
+                    dpl: formatNumberWithSpaces(document.getElementById('dpl').value, 17),
                     numero_facture: document.getElementById('numero_facture').value,
                     date_facture: new Date(document.getElementById('date_facture').value).toLocaleDateString('fr-FR'),
                     payer_avant: new Date(document.getElementById('payer_avant').value).toLocaleDateString('fr-FR'),
@@ -202,7 +187,7 @@
 
                 // Chargement du modèle PDF
                 if (!pdfTemplate) {
-                    alert("Aucun modèle PDF chargé. Veuillez charger un modèle.");
+                    alert("Aucun modèle PDF chargé. Veuillez vérifier l'URL du modèle.");
                     return;
                 }
                 const pdfDoc = await PDFLib.PDFDocument.load(pdfTemplate);
